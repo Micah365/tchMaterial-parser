@@ -1,15 +1,27 @@
 # -*- mode: python ; coding: utf-8 -*-
 import sys
-import os
+from pathlib import Path
+
+from PyInstaller.utils.hooks import collect_data_files
 
 is_mac = sys.platform.startswith('darwin')
 
+# sv-ttk 通过 Path(__file__).with_name() 加载主题文件，需把随包的 .tcl 与 .png 一并收集进来；图标文件是程序运行时读取的自有资源
+runtime_assets = [
+    (str(path), "tchmaterial_parser/assets")
+    for path in Path("src/tchmaterial_parser/assets").glob("*.png")
+]
+data_files = collect_data_files("sv_ttk") + runtime_assets
+
 a = Analysis(
-    ['src/tchMaterial-parser.pyw'],
-    pathex=[],
+    # 入口位于包外：PyInstaller 会把入口脚本当作 __main__ 分析，包内脚本的相对导入在此情形下不成立
+    # pathex 指向 src/，使入口里的 import tchmaterial_parser 能被解析到
+    ['src/main.py'],
+    pathex=['src'],
     binaries=[],
-    datas=[],
-    hiddenimports=[],
+    datas=data_files,
+    # Pillow 的 _imagingtk 在非 Windows 平台通过 C 层动态导入此模块，PyInstaller 无法静态发现
+    hiddenimports=["PIL._tkinter_finder"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -38,7 +50,7 @@ if is_mac:
         codesign_identity=None,
         entitlements_file=None,
     )
-    
+
     coll = COLLECT(
         exe,
         a.binaries,
@@ -48,11 +60,11 @@ if is_mac:
         upx_exclude=[],
         name='tchMaterial-parser',
     )
-    
+
     app = BUNDLE(
         coll,
         name='tchMaterial-parser.app',
-        icon='src/logo.icns',
+        icon='assets/logo.icns',
         bundle_identifier=None,
     )
 
@@ -76,6 +88,6 @@ else:
         target_arch=None,
         codesign_identity=None,
         entitlements_file=None,
-        version='version.txt',
-        icon=['src/favicon_48x48.ico'],
+        version='version_info.txt',
+        icon=['assets/icon.ico'],
     )
